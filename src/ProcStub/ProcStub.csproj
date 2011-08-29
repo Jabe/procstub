@@ -33,7 +33,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
-    <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Core" />
     <Reference Include="System.ServiceProcess" />
     <Reference Include="System.Xml.Linq" />
@@ -42,17 +41,19 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ServiceWrapper.cs" />
     <Compile Include="ProcBase.cs" />
     <Compile Include="ParentProcessUtilities.cs" />
     <Compile Include="IProc.cs" />
-    <Compile Include="ProcStubInstaller.cs">
-      <SubType>Component</SubType>
-    </Compile>
     <Compile Include="ProcStub.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ProcService.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="ServiceAccess.cs" />
+    <Compile Include="ServiceError.cs" />
+    <Compile Include="ServiceStart.cs" />
+    <Compile Include="ServiceTypes.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

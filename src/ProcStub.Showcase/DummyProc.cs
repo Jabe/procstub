@@ -5,22 +5,15 @@ namespace ProcStub.Showcase
 {
     public class DummyProc : ProcBase
     {
-        public DummyProc(string serviceName) : base(serviceName)
-        {
-        }
-
         public override void Run(CancellationToken token)
         {
             Console.WriteLine("-> Run");
 
-            for (int i = 0; i < 100000; i++)
+            while (true)
             {
-                Console.WriteLine("Hello, my name is " + ServiceName);
-
                 // wait for signal and break -or- 100 ms and continue
-                if (token.WaitHandle.WaitOne(100))
+                if (token.WaitHandle.WaitOne(0))
                 {
-                    Console.WriteLine("Cancelled");
                     break;
                 }
             }

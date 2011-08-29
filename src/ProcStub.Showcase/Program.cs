@@ -10,14 +10,14 @@ namespace ProcStub.Showcase
     {
         private static void Main(string[] args)
         {
-            ProcStub.InitArgs(ref args);
+            ProcStub stub = ProcStub.Register("procstub-showcase", new DummyProc());
+            ProcStub stub2 = ProcStub.Register("procstub-showcase2", new DummyProc());
 
-            var stub = new ProcStub(new DummyProc("procstub-showcase"));
-            var stub2 = new ProcStub(new DummyProc("procstub-showcase2"));
+            stub.ServiceType = ServiceTypes.ServiceWin32ShareProcess;
+            stub2.ServiceType = ServiceTypes.ServiceWin32ShareProcess;
 
-            // test whether this needs to run as service. only one will execute and then exit Main().
-            if (stub.RunService()) return;
-            if (stub2.RunService()) return;
+            if (ProcStub.RunServices())
+                return;
 
             Console.WriteLine("ProcStub showcase");
             Console.WriteLine("Commands: 'r' to run, 'i' to install as server, 'u' to uninstall, 'q' to quit");

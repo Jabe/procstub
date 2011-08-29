@@ -6,14 +6,17 @@ namespace ProcStub
 {
     public class ProcService : ServiceBase
     {
-        private readonly IProc _proc;
+        private readonly ProcStub _procStub;
         private readonly Thread _thread;
         private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
-        public ProcService(IProc proc)
+        public ProcService(ProcStub procStub)
         {
-            _proc = proc;
+            _procStub = procStub;
             _thread = new Thread(Impl) {IsBackground = true};
+
+            // copy to parent object for scm
+            ServiceName = _procStub.ServiceName;
         }
 
         protected override void OnStart(string[] args)
@@ -42,7 +45,7 @@ namespace ProcStub
 
         private void Impl()
         {
-            _proc.Run(_tokenSource.Token);
+            _procStub.Proc.Run(_tokenSource.Token);
         }
     }
 }

@@ -1,50 +1,48 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Configuration.Install;
 using System.Linq;
-using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Security;
 using System.ServiceProcess;
 
 namespace ProcStub
 {
-    public class ProcStub
+    public class ProcStub : IDisposable
     {
+        private static readonly IList<ProcService> AllServices = new List<ProcService>();
+
         private static bool? _isService;
-        private static bool _initialized;
 
-        private readonly Assembly _actionAssembly;
-
-        public ProcStub(IProc proc)
+        private ProcStub(string serviceName, IProc proc)
         {
-            CheckInit();
-
+            ServiceName = serviceName;
             Proc = proc;
-            _actionAssembly = Proc.GetType().Assembly;
+
+            // defaults
+            ServiceAccess = ServiceAccess.ServiceAllAccess;
+            ServiceType = ServiceTypes.ServiceWin32OwnProcess;
+            ServiceStart = ServiceStart.ServiceAutoStart;
+            ServiceError = ServiceError.ServiceErrorNormal;
         }
 
-        public static string CurrentServiceName { get; set; }
-
+        public string ServiceName { get; private set; }
+        public string DisplayName { get; set; }
         public IProc Proc { get; private set; }
 
-        public static bool IsService
-        {
-            get
-            {
-                if (_isService == null)
-                {
-                    _isService = ParentProcessUtilities.GetParentProcess().ProcessName == "services";
-                }
-
-                return (bool) _isService;
-            }
-        }
+        public ServiceAccess ServiceAccess { get; set; }
+        public ServiceTypes ServiceType { get; set; }
+        public ServiceStart ServiceStart { get; set; }
+        public ServiceError ServiceError { get; set; }
+        public string Username { get; set; }
+        public SecureString Password { get; set; }
+        public IEnumerable<string> Dependencies { get; set; }
 
         public ServiceControllerStatus? ServiceStatus
         {
             get
             {
-                using (var controller = new ServiceController(Proc.ServiceName))
+                using (var controller = new ServiceController(ServiceName))
                 {
                     try
                     {
@@ -58,103 +56,93 @@ namespace ProcStub
             }
         }
 
-        public static string[] InitArgs(string[] args)
+        public static bool IsServiceHost
         {
-            InitArgs(ref args);
-            return args;
-        }
-
-        public static void InitArgs(ref string[] args)
-        {
-            _initialized = true;
-
-            if (!IsService)
-                return;
-
-            if (args.Length == 0)
-                throw new ArgumentException("Unable to find service name in args.");
-
-            CurrentServiceName = args[0];
-
-            var newArgs = new string[args.Length - 1];
-            Array.Copy(args, 1, newArgs, 0, newArgs.Length);
-            args = newArgs;
-        }
-
-        public void Install()
-        {
-            var args = new string[0];
-
-            using (AssemblyInstaller installer = GetInstaller(args))
+            get
             {
-                IDictionary state = new Hashtable();
-
-                try
+                if (_isService == null)
                 {
-                    installer.Install(state);
-                    installer.Commit(state);
+                    _isService = ParentProcessUtilities.GetParentProcess().ProcessName == "services";
                 }
-                catch
-                {
-                    try
-                    {
-                        installer.Rollback(state);
-                    }
-                    catch
-                    {
-                    }
 
-                    throw;
-                }
+                return (bool) _isService;
             }
         }
 
-        public void Uninstall()
+        #region IDisposable Members
+
+        public void Dispose()
         {
-            var args = new string[0];
-
-            using (AssemblyInstaller installer = GetInstaller(args))
+            if (Password != null)
             {
-                IDictionary state = new Hashtable();
-
-                try
-                {
-                    installer.Uninstall(state);
-                }
-                catch
-                {
-                    try
-                    {
-                        installer.Rollback(state);
-                    }
-                    catch
-                    {
-                    }
-
-                    throw;
-                }
+                Password.Dispose();
+                Password = null;
             }
         }
 
-        public bool RunService()
+        #endregion
+
+        public static ProcStub Register(string serviceName, IProc proc)
         {
-            CheckInit();
+            var procStub = new ProcStub(serviceName, proc);
 
-            if (!IsService)
-                return false;
+            AllServices.Add(new ProcService(procStub));
 
-            if (CurrentServiceName != Proc.ServiceName)
-                return false;
+            return procStub;
+        }
 
-            var service = new ProcService(Proc);
-            ServiceBase.Run(service);
+        public bool Install()
+        {
+            string path = "\"" + Proc.GetType().Assembly.Location + "\"";
 
-            return true;
+            string dep = null;
+
+            if (Dependencies != null )
+            {
+                var deps = Dependencies.ToArray();
+
+                if (deps.Length > 0)
+                {
+                    dep = "";
+
+                    foreach (var d in deps)
+                        dep += d + "\0";
+
+                    dep += "\0";
+                }
+            }
+
+            string strPassword = null;
+            IntPtr ptrPassword = IntPtr.Zero;
+
+            if (Password != null)
+            {
+                ptrPassword = Marshal.SecureStringToBSTR(Password);
+            }
+
+            try
+            {
+                if (ptrPassword != IntPtr.Zero)
+                    strPassword = Marshal.PtrToStringBSTR(ptrPassword);
+
+                return ServiceWrapper.CreateService(ServiceName, DisplayName, ServiceAccess, ServiceType, ServiceStart,
+                                                    ServiceError, path, null, null, dep, Username, strPassword);
+            }
+            finally
+            {
+                if (ptrPassword != IntPtr.Zero)
+                    Marshal.ZeroFreeBSTR(ptrPassword);
+            }
+        }
+
+        public bool Uninstall()
+        {
+            return ServiceWrapper.DeleteService(ServiceName);
         }
 
         public bool Start()
         {
-            using (var controller = new ServiceController(Proc.ServiceName))
+            using (var controller = new ServiceController(ServiceName))
             {
                 try
                 {
@@ -170,7 +158,7 @@ namespace ProcStub
 
         public bool Stop()
         {
-            using (var controller = new ServiceController(Proc.ServiceName))
+            using (var controller = new ServiceController(ServiceName))
             {
                 try
                 {
@@ -184,25 +172,13 @@ namespace ProcStub
             }
         }
 
-        private AssemblyInstaller GetInstaller(string[] args)
+        public static bool RunServices()
         {
-            var installer = new AssemblyInstaller(typeof (ProcStubInstaller).Assembly, args)
-                                {
-                                    Context = new InstallContext(null, args),
-                                    UseNewContext = false,
-                                };
+            if (!IsServiceHost) return false;
 
-            string path = string.Format("\"{0}\" \"{1}\"", _actionAssembly.Location, Proc.ServiceName);
-            installer.Context.Parameters["assemblypath"] = path;
-            installer.Context.Parameters["servicename"] = Proc.ServiceName;
+            ServiceBase.Run(AllServices.ToArray());
 
-            return installer;
-        }
-
-        private void CheckInit()
-        {
-            if (!_initialized)
-                throw new InvalidOperationException("ProcStub has not been initialized. Call InitArgs first.");
+            return true;
         }
     }
 }
