@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security;
+using System.Security.AccessControl;
 using System.ServiceProcess;
 
 namespace ProcStub
@@ -97,7 +97,7 @@ namespace ProcStub
 
             string dep = null;
 
-            if (Dependencies != null )
+            if (Dependencies != null)
             {
                 var deps = Dependencies.ToArray();
 
@@ -169,6 +169,14 @@ namespace ProcStub
                 {
                     return false;
                 }
+            }
+        }
+
+        public void SetAcl(Action<DiscretionaryAcl> applySecurityIdentifier)
+        {
+            using (var controller = new ServiceController(ServiceName))
+            {
+                controller.SetAcl(applySecurityIdentifier);
             }
         }
 

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -44,6 +46,9 @@ namespace ProcStub.Showcase
                     case 'i':
                         stub.Install();
                         stub2.Install();
+
+                        stub.SetAcl(AuthUserStartStop);
+                        stub2.SetAcl(AuthUserStartStop);
                         break;
                     case 'u':
                         stub.Uninstall();
@@ -53,6 +58,14 @@ namespace ProcStub.Showcase
                         return;
                 }
             }
+        }
+
+        private static void AuthUserStartStop(DiscretionaryAcl dacl)
+        {
+            var sid = new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null);
+
+            dacl.SetAccess(AccessControlType.Allow, sid, (int) (ServiceAccess.ServiceStart | ServiceAccess.ServiceStop),
+                           InheritanceFlags.None, PropagationFlags.None);
         }
     }
 }

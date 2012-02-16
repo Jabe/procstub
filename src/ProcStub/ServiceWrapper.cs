@@ -2,11 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.ServiceProcess;
 
 namespace ProcStub
 {
     public static class ServiceWrapper
     {
+        private const int ErrorInsufficientBuffer = 0x007A;
+
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern IntPtr CreateService(
             IntPtr hSCManager,
@@ -45,6 +49,14 @@ namespace ProcStub
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool CloseServiceHandle(
             IntPtr hSCObject);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        private static extern bool QueryServiceObjectSecurity(
+            SafeHandle serviceHandle, SecurityInfos secInfo, byte[] lpSecDesrBuf, uint bufSize, out uint bufSizeNeeded);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        private static extern bool SetServiceObjectSecurity(
+            SafeHandle serviceHandle, SecurityInfos secInfos, byte[] lpSecDesrBuf);
 
         public static bool CreateService(string serviceName, string displayName, ServiceAccess access,
                                          ServiceTypes type, ServiceStart start, ServiceError error, string path,
@@ -105,10 +117,65 @@ namespace ProcStub
             return false;
         }
 
+        public static bool SetAcl(this ServiceController controller, Action<DiscretionaryAcl> fn)
+        {
+            // from http://pinvoke.net/default.aspx/advapi32/QueryServiceObjectSecurity.html (thx!)
+
+            using (SafeHandle handle = controller.ServiceHandle)
+            {
+                var psd = new byte[0];
+                uint bufSizeNeeded;
+
+                bool success = QueryServiceObjectSecurity(handle, SecurityInfos.DiscretionaryAcl, psd, 0,
+                                                          out bufSizeNeeded);
+
+                if (!success)
+                {
+                    int error = Marshal.GetLastWin32Error();
+
+                    if (error == ErrorInsufficientBuffer)
+                    {
+                        psd = new byte[bufSizeNeeded];
+                        success = QueryServiceObjectSecurity(handle, SecurityInfos.DiscretionaryAcl, psd, bufSizeNeeded,
+                                                             out bufSizeNeeded);
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+
+                if (!success)
+                {
+                    return false;
+                }
+
+                // get security descriptor via raw into DACL form so ACE
+                // ordering checks are done for us.
+                var rsd = new RawSecurityDescriptor(psd, 0);
+                var dacl = new DiscretionaryAcl(false, false, rsd.DiscretionaryAcl);
+
+                fn(dacl);
+
+                // convert discretionary ACL back to raw form; looks like via byte[] is only way
+                var rawdacl = new byte[dacl.BinaryLength];
+                dacl.GetBinaryForm(rawdacl, 0);
+                rsd.DiscretionaryAcl = new RawAcl(rawdacl, 0);
+
+                // set raw security descriptor on service again
+                var rawsd = new byte[rsd.BinaryLength];
+                rsd.GetBinaryForm(rawsd, 0);
+
+                success = SetServiceObjectSecurity(handle, SecurityInfos.DiscretionaryAcl, rawsd);
+
+                return success;
+            }
+        }
+
         #region Nested type: ScmAccess
 
         [Flags]
-        internal enum ScmAccess : uint
+        private enum ScmAccess : uint
         {
             StandardRightsRequired = 0xF0000,
             ScManagerConnect = 0x00001,
