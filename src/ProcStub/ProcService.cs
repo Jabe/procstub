@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.AccessControl;
@@ -93,7 +94,7 @@ namespace ProcStub
 
         public bool Install()
         {
-            string path = "\"" + Proc.GetType().Assembly.Location + "\"";
+            string path = "\"" + Assembly.GetEntryAssembly().Location + "\"";
 
             string dep = null;
 
