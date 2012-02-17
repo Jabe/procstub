@@ -45,9 +45,9 @@
     <Compile Include="ProcBase.cs" />
     <Compile Include="ParentProcessUtilities.cs" />
     <Compile Include="IProc.cs" />
-    <Compile Include="ProcStub.cs" />
+    <Compile Include="ProcService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ProcService.cs">
+    <Compile Include="ProcWinService.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="ServiceAccess.cs" />

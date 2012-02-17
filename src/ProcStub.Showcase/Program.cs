@@ -12,13 +12,13 @@ namespace ProcStub.Showcase
     {
         private static void Main(string[] args)
         {
-            ProcStub stub = ProcStub.Register("procstub-showcase", new DummyProc());
-            ProcStub stub2 = ProcStub.Register("procstub-showcase2", new DummyProc());
+            ProcService srv1 = ProcService.Register("procstub-showcase1", new DummyProc());
+            ProcService srv2 = ProcService.Register("procstub-showcase2", new DummyProc());
 
-            stub.ServiceType = ServiceTypes.ServiceWin32ShareProcess;
-            stub2.ServiceType = ServiceTypes.ServiceWin32ShareProcess;
+            srv1.ServiceType = ServiceTypes.ServiceWin32ShareProcess;
+            srv2.ServiceType = ServiceTypes.ServiceWin32ShareProcess;
 
-            if (ProcStub.RunServices())
+            if (ProcService.RunServices())
                 return;
 
             Console.WriteLine("ProcStub showcase");
@@ -36,7 +36,7 @@ namespace ProcStub.Showcase
                     case 'r':
                         using (var s = new CancellationTokenSource())
                         {
-                            Task.Factory.StartNew(() => stub.Proc.Run(s.Token));
+                            Task.Factory.StartNew(() => srv1.Proc.Run(s.Token));
 
                             Console.WriteLine("Press enter to simulate stopping the service");
                             Console.ReadLine();
@@ -44,15 +44,15 @@ namespace ProcStub.Showcase
                         }
                         break;
                     case 'i':
-                        stub.Install();
-                        stub2.Install();
+                        srv1.Install();
+                        srv2.Install();
 
-                        stub.SetAcl(AuthUserStartStop);
-                        stub2.SetAcl(AuthUserStartStop);
+                        srv1.SetAcl(AuthUserStartStop);
+                        srv2.SetAcl(AuthUserStartStop);
                         break;
                     case 'u':
-                        stub.Uninstall();
-                        stub2.Uninstall();
+                        srv1.Uninstall();
+                        srv2.Uninstall();
                         break;
                     case 'q':
                         return;

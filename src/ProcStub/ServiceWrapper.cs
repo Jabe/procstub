@@ -7,7 +7,7 @@ using System.ServiceProcess;
 
 namespace ProcStub
 {
-    public static class ServiceWrapper
+    internal static class ServiceWrapper
     {
         private const int ErrorInsufficientBuffer = 0x007A;
 

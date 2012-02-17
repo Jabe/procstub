@@ -12,7 +12,7 @@ namespace ProcStub
     /// From: http://stackoverflow.com/questions/394816/how-to-get-parent-process-in-net-in-managed-way/3346055#3346055 (thx!)
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    public struct ParentProcessUtilities
+    internal struct ParentProcessUtilities
     {
         // These members must match PROCESS_BASIC_INFORMATION
         internal IntPtr Reserved1;

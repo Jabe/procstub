@@ -1,51 +1,192 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Security;
+using System.Security.AccessControl;
 using System.ServiceProcess;
-using System.Threading;
 
 namespace ProcStub
 {
-    public class ProcService : ServiceBase
+    public class ProcService : IDisposable
     {
-        private readonly ProcStub _procStub;
-        private readonly Thread _thread;
-        private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
+        private static readonly IList<ProcWinService> AllServices = new List<ProcWinService>();
 
-        public ProcService(ProcStub procStub)
+        private static bool? _isService;
+
+        private ProcService(string serviceName, IProc proc)
         {
-            _procStub = procStub;
-            _thread = new Thread(Impl) {IsBackground = true};
+            ServiceName = serviceName;
+            Proc = proc;
 
-            // copy to parent object for scm
-            ServiceName = _procStub.ServiceName;
+            // defaults
+            ServiceAccess = ServiceAccess.ServiceAllAccess;
+            ServiceType = ServiceTypes.ServiceWin32OwnProcess;
+            ServiceStart = ServiceStart.ServiceAutoStart;
+            ServiceError = ServiceError.ServiceErrorNormal;
         }
 
-        protected override void OnStart(string[] args)
+        public string ServiceName { get; private set; }
+        public string DisplayName { get; set; }
+        public IProc Proc { get; private set; }
+
+        public ServiceAccess ServiceAccess { get; set; }
+        public ServiceTypes ServiceType { get; set; }
+        public ServiceStart ServiceStart { get; set; }
+        public ServiceError ServiceError { get; set; }
+        public string Username { get; set; }
+        public SecureString Password { get; set; }
+        public IEnumerable<string> Dependencies { get; set; }
+
+        public ServiceControllerStatus? ServiceStatus
         {
-            _thread.Start();
-
-            base.OnStart(args);
-        }
-
-        protected override void OnStop()
-        {
-            _tokenSource.Cancel();
-
-            base.OnStop();
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
+            get
             {
-                _tokenSource.Dispose();
+                using (var controller = new ServiceController(ServiceName))
+                {
+                    try
+                    {
+                        return controller.Status;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return null;
+                    }
+                }
+            }
+        }
+
+        public static bool IsServiceHost
+        {
+            get
+            {
+                if (_isService == null)
+                {
+                    _isService = ParentProcessUtilities.GetParentProcess().ProcessName == "services";
+                }
+
+                return (bool)_isService;
+            }
+        }
+
+        #region IDisposable Members
+
+        public void Dispose()
+        {
+            if (Password != null)
+            {
+                Password.Dispose();
+                Password = null;
+            }
+        }
+
+        #endregion
+
+        public static ProcService Register(string serviceName, IProc proc)
+        {
+            var procStub = new ProcService(serviceName, proc);
+
+            AllServices.Add(new ProcWinService(procStub));
+
+            return procStub;
+        }
+
+        public bool Install()
+        {
+            string path = "\"" + Proc.GetType().Assembly.Location + "\"";
+
+            string dep = null;
+
+            if (Dependencies != null)
+            {
+                var deps = Dependencies.ToArray();
+
+                if (deps.Length > 0)
+                {
+                    dep = "";
+
+                    foreach (var d in deps)
+                        dep += d + "\0";
+
+                    dep += "\0";
+                }
             }
 
-            base.Dispose(disposing);
+            string strPassword = null;
+            IntPtr ptrPassword = IntPtr.Zero;
+
+            if (Password != null)
+            {
+                ptrPassword = Marshal.SecureStringToBSTR(Password);
+            }
+
+            try
+            {
+                if (ptrPassword != IntPtr.Zero)
+                    strPassword = Marshal.PtrToStringBSTR(ptrPassword);
+
+                return ServiceWrapper.CreateService(ServiceName, DisplayName, ServiceAccess, ServiceType, ServiceStart,
+                                                    ServiceError, path, null, null, dep, Username, strPassword);
+            }
+            finally
+            {
+                if (ptrPassword != IntPtr.Zero)
+                    Marshal.ZeroFreeBSTR(ptrPassword);
+            }
         }
 
-        private void Impl()
+        public bool Uninstall()
         {
-            _procStub.Proc.Run(_tokenSource.Token);
+            return ServiceWrapper.DeleteService(ServiceName);
+        }
+
+        public bool Start()
+        {
+            using (var controller = new ServiceController(ServiceName))
+            {
+                try
+                {
+                    controller.Start();
+                    return true;
+                }
+                catch (InvalidOperationException)
+                {
+                    return false;
+                }
+            }
+        }
+
+        public bool Stop()
+        {
+            using (var controller = new ServiceController(ServiceName))
+            {
+                try
+                {
+                    controller.Stop();
+                    return true;
+                }
+                catch (InvalidOperationException)
+                {
+                    return false;
+                }
+            }
+        }
+
+        public void SetAcl(Action<DiscretionaryAcl> applySecurityIdentifier)
+        {
+            using (var controller = new ServiceController(ServiceName))
+            {
+                controller.SetAcl(applySecurityIdentifier);
+            }
+        }
+
+        public static bool RunServices()
+        {
+            if (!IsServiceHost) return false;
+
+            ServiceBase.Run(AllServices.ToArray());
+
+            return true;
         }
     }
 }
