@@ -172,11 +172,11 @@ namespace ProcStub
             }
         }
 
-        public void SetAcl(Action<DiscretionaryAcl> applySecurityIdentifier)
+        public bool SetAcl(Action<DiscretionaryAcl> applySecurityIdentifier)
         {
             using (var controller = new ServiceController(ServiceName))
             {
-                controller.SetAcl(applySecurityIdentifier);
+                return controller.SetAcl(applySecurityIdentifier);
             }
         }
 
