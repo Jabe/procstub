@@ -29,6 +29,7 @@ namespace ProcStub
 
         public string ServiceName { get; private set; }
         public string DisplayName { get; set; }
+        public string Params { get; set; }
         public IProc Proc { get; private set; }
 
         public ServiceAccess ServiceAccess { get; set; }
@@ -95,6 +96,11 @@ namespace ProcStub
         public bool Install()
         {
             string path = "\"" + Assembly.GetEntryAssembly().Location + "\"";
+
+            if (!string.IsNullOrEmpty(Params))
+            {
+                path += " " + Params;
+            }
 
             string dep = null;
 
