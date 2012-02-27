@@ -46,6 +46,9 @@ namespace ProcStub
         private void Impl()
         {
             _procService.Proc.Run(_tokenSource.Token);
+
+            // proc ended, we should stop the service as well.
+            Stop();
         }
     }
 }
