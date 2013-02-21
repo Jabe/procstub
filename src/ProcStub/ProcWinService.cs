@@ -48,7 +48,7 @@ namespace ProcStub
             _procService.Proc.Run(_tokenSource.Token);
 
             // proc ended, we should stop the service as well.
-            Stop();
+            base.OnStop();
         }
     }
 }
