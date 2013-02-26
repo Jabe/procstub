@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 
 namespace ProcStub.Showcase
@@ -7,18 +9,16 @@ namespace ProcStub.Showcase
     {
         public override void Run(CancellationToken token)
         {
-            Console.WriteLine("-> Run");
+            Debug.WriteLine(" proc: running");
 
-            while (true)
+            while (!token.WaitHandle.WaitOne(1000))
             {
-                // wait for signal and break -or- 100 ms and continue
-                if (token.WaitHandle.WaitOne(0))
-                {
-                    break;
-                }
+                Debug.WriteLine(" proc: pong");
             }
 
-            Console.WriteLine("<- Run");
+            Debug.WriteLine(" proc: stopping (takes 3s)");
+            Thread.Sleep(3000);
+            Debug.WriteLine(" proc: stopped");
         }
     }
 }
