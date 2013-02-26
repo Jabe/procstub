@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ServiceProcess;
 using System.Threading;
 
@@ -29,6 +30,7 @@ namespace ProcStub
         protected override void OnStop()
         {
             _tokenSource.Cancel();
+            _thread.Join();
 
             base.OnStop();
         }
