@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.AccessControl;
 using System.ServiceProcess;
+using System.Threading;
 
 namespace ProcStub
 {
@@ -67,7 +68,7 @@ namespace ProcStub
                     _isService = ParentProcessUtilities.GetParentProcess().ProcessName == "services";
                 }
 
-                return (bool)_isService;
+                return (bool) _isService;
             }
         }
 
@@ -106,13 +107,13 @@ namespace ProcStub
 
             if (Dependencies != null)
             {
-                var deps = Dependencies.ToArray();
+                string[] deps = Dependencies.ToArray();
 
                 if (deps.Length > 0)
                 {
                     dep = "";
 
-                    foreach (var d in deps)
+                    foreach (string d in deps)
                         dep += d + "\0";
 
                     dep += "\0";
@@ -185,6 +186,17 @@ namespace ProcStub
             {
                 return controller.SetAcl(applySecurityIdentifier);
             }
+        }
+
+        public bool AwaitStatus(ServiceControllerStatus status, CancellationToken ct)
+        {
+            while (!ct.WaitHandle.WaitOne(100))
+            {
+                if (ServiceStatus == null || ServiceStatus == status)
+                    return true;
+            }
+
+            return false;
         }
 
         public static bool RunServices()
