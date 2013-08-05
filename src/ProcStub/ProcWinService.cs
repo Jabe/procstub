@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ServiceProcess;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace ProcStub
 {
@@ -50,7 +51,7 @@ namespace ProcStub
             _procService.Proc.Run(_tokenSource.Token);
 
             // proc ended, we should stop the service as well.
-            base.OnStop();
+            Task.Factory.StartNew(Stop);
         }
     }
 }
