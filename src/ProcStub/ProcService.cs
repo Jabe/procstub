@@ -26,10 +26,13 @@ namespace ProcStub
             ServiceType = ServiceTypes.ServiceWin32OwnProcess;
             ServiceStart = ServiceStart.ServiceAutoStart;
             ServiceError = ServiceError.ServiceErrorNormal;
+
+            Path = Assembly.GetEntryAssembly().Location;
         }
 
         public string ServiceName { get; private set; }
         public string DisplayName { get; set; }
+        public string Path { get; set; }
         public string Params { get; set; }
         public IProc Proc { get; private set; }
 
@@ -96,7 +99,7 @@ namespace ProcStub
 
         public bool Install()
         {
-            string path = "\"" + Assembly.GetEntryAssembly().Location + "\"";
+            string path = "\"" + Path + "\"";
 
             if (!string.IsNullOrEmpty(Params))
             {
