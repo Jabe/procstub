@@ -117,6 +117,34 @@ namespace ProcStub
             return false;
         }
 
+        public static bool ServiceExists(string serviceName, string server = null)
+        {
+            IntPtr manager = IntPtr.Zero;
+            IntPtr service = IntPtr.Zero;
+
+            try
+            {
+                manager = OpenSCManager(server, null, ScmAccess.ScManagerAllAccess);
+
+                if (manager != IntPtr.Zero)
+                {
+                    service = OpenService(manager, serviceName, ServiceAccess.ServiceAllAccess);
+
+                    if (service != IntPtr.Zero)
+                    {
+                        return true;
+                    }
+                }
+            }
+            finally
+            {
+                if (service != IntPtr.Zero) CloseServiceHandle(service);
+                if (manager != IntPtr.Zero) CloseServiceHandle(manager);
+            }
+
+            return false;
+        }
+
         public static bool SetAcl(this ServiceController controller, Action<DiscretionaryAcl> fn)
         {
             // from http://pinvoke.net/default.aspx/advapi32/QueryServiceObjectSecurity.html (thx!)
