@@ -10,6 +10,7 @@ namespace ProcStub
     public static class ServiceWrapper
     {
         private const int ErrorInsufficientBuffer = 0x007A;
+        private const uint ServiceConfigDescription = 0x01;
 
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern IntPtr CreateService(
@@ -45,6 +46,13 @@ namespace ProcStub
             string databaseName,
             ScmAccess dwDesiredAccess);
 
+        [DllImport("advapi32.dll", EntryPoint = "ChangeServiceConfig2W", SetLastError = true, CharSet = CharSet.Unicode)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool ChangeServiceConfig2(
+            IntPtr hService,
+            uint dwInfoLevel,
+            [In] ServiceDescription config);
+
         [DllImport("advapi32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool CloseServiceHandle(
@@ -59,8 +67,8 @@ namespace ProcStub
             SafeHandle serviceHandle, SecurityInfos secInfos, byte[] lpSecDesrBuf);
 
         public static bool CreateService(string serviceName, string displayName, ServiceAccess access,
-                                         ServiceTypes type, ServiceStart start, ServiceError error, string path,
-                                         string orderGroup, string tagId, string dep, string username, string password, string server = null)
+            ServiceTypes type, ServiceStart start, ServiceError error, string path,
+            string orderGroup, string tagId, string dep, string username, string password, string server = null)
         {
             IntPtr manager = IntPtr.Zero;
             IntPtr service = IntPtr.Zero;
@@ -72,7 +80,7 @@ namespace ProcStub
                 if (manager != IntPtr.Zero)
                 {
                     service = CreateService(manager, serviceName, displayName, (uint) access, (uint) type, (uint) start,
-                                            (uint) error, path, orderGroup, tagId, dep, username, password);
+                        (uint) error, path, orderGroup, tagId, dep, username, password);
 
                     if (service != IntPtr.Zero)
                     {
@@ -145,6 +153,39 @@ namespace ProcStub
             return false;
         }
 
+        public static bool SetServiceDescription(string serviceName, string description, string server = null)
+        {
+            IntPtr manager = IntPtr.Zero;
+            IntPtr service = IntPtr.Zero;
+
+            try
+            {
+                manager = OpenSCManager(server, null, ScmAccess.ScManagerAllAccess);
+
+                if (manager != IntPtr.Zero)
+                {
+                    service = OpenService(manager, serviceName, ServiceAccess.ServiceAllAccess);
+
+                    if (service != IntPtr.Zero)
+                    {
+                        var config = new ServiceDescription
+                        {
+                            lpDescription = description
+                        };
+
+                        return ChangeServiceConfig2(service, ServiceConfigDescription, config);
+                    }
+                }
+            }
+            finally
+            {
+                if (service != IntPtr.Zero) CloseServiceHandle(service);
+                if (manager != IntPtr.Zero) CloseServiceHandle(manager);
+            }
+
+            return false;
+        }
+
         public static bool SetAcl(this ServiceController controller, Action<DiscretionaryAcl> fn)
         {
             // from http://pinvoke.net/default.aspx/advapi32/QueryServiceObjectSecurity.html (thx!)
@@ -155,7 +196,7 @@ namespace ProcStub
                 uint bufSizeNeeded;
 
                 bool success = QueryServiceObjectSecurity(handle, SecurityInfos.DiscretionaryAcl, psd, 0,
-                                                          out bufSizeNeeded);
+                    out bufSizeNeeded);
 
                 if (!success)
                 {
@@ -165,7 +206,7 @@ namespace ProcStub
                     {
                         psd = new byte[bufSizeNeeded];
                         success = QueryServiceObjectSecurity(handle, SecurityInfos.DiscretionaryAcl, psd, bufSizeNeeded,
-                                                             out bufSizeNeeded);
+                            out bufSizeNeeded);
                     }
                     else
                     {
@@ -200,8 +241,6 @@ namespace ProcStub
             }
         }
 
-        #region Nested type: ScmAccess
-
         [Flags]
         private enum ScmAccess : uint
         {
@@ -222,6 +261,10 @@ namespace ProcStub
                                  ScManagerModifyBootConfig
         }
 
-        #endregion
+        [StructLayout(LayoutKind.Sequential)]
+        public class ServiceDescription
+        {
+            [MarshalAs(UnmanagedType.LPWStr)] public string lpDescription;
+        }
     }
 }
