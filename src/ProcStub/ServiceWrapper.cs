@@ -7,7 +7,7 @@ using System.ServiceProcess;
 
 namespace ProcStub
 {
-    internal static class ServiceWrapper
+    public static class ServiceWrapper
     {
         private const int ErrorInsufficientBuffer = 0x007A;
 
@@ -60,14 +60,14 @@ namespace ProcStub
 
         public static bool CreateService(string serviceName, string displayName, ServiceAccess access,
                                          ServiceTypes type, ServiceStart start, ServiceError error, string path,
-                                         string orderGroup, string tagId, string dep, string username, string password)
+                                         string orderGroup, string tagId, string dep, string username, string password, string server = null)
         {
             IntPtr manager = IntPtr.Zero;
             IntPtr service = IntPtr.Zero;
 
             try
             {
-                manager = OpenSCManager(null, null, ScmAccess.ScManagerAllAccess);
+                manager = OpenSCManager(server, null, ScmAccess.ScManagerAllAccess);
 
                 if (manager != IntPtr.Zero)
                 {
@@ -89,14 +89,14 @@ namespace ProcStub
             return false;
         }
 
-        public static bool DeleteService(string serviceName)
+        public static bool DeleteService(string serviceName, string server = null)
         {
             IntPtr manager = IntPtr.Zero;
             IntPtr service = IntPtr.Zero;
 
             try
             {
-                manager = OpenSCManager(null, null, ScmAccess.ScManagerAllAccess);
+                manager = OpenSCManager(server, null, ScmAccess.ScManagerAllAccess);
 
                 if (manager != IntPtr.Zero)
                 {
