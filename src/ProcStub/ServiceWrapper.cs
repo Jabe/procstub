@@ -12,6 +12,8 @@ namespace ProcStub
         private const int ErrorInsufficientBuffer = 0x007A;
         private const uint ServiceConfigDescription = 0x01;
 
+        private const uint ServiceNoChange = 0xffffffff; //this value is found in winsvc.h
+
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern IntPtr CreateService(
             IntPtr hSCManager,
@@ -45,6 +47,11 @@ namespace ProcStub
             string machineName,
             string databaseName,
             ScmAccess dwDesiredAccess);
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern Boolean ChangeServiceConfig(IntPtr hService, UInt32 nServiceType, UInt32 nStartType,
+            UInt32 nErrorControl, String lpBinaryPathName, String lpLoadOrderGroup, IntPtr lpdwTagId,
+            String lpDependencies, String lpServiceStartName, String lpPassword, String lpDisplayName);
 
         [DllImport("advapi32.dll", EntryPoint = "ChangeServiceConfig2W", SetLastError = true, CharSet = CharSet.Unicode)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -164,7 +171,7 @@ namespace ProcStub
 
                 if (manager != IntPtr.Zero)
                 {
-                    service = OpenService(manager, serviceName, ServiceAccess.ServiceAllAccess);
+                    service = OpenService(manager, serviceName, ServiceAccess.ServiceChangeConfig);
 
                     if (service != IntPtr.Zero)
                     {
@@ -174,6 +181,57 @@ namespace ProcStub
                         };
 
                         return ChangeServiceConfig2(service, ServiceConfigDescription, config);
+                    }
+                }
+            }
+            finally
+            {
+                if (service != IntPtr.Zero) CloseServiceHandle(service);
+                if (manager != IntPtr.Zero) CloseServiceHandle(manager);
+            }
+
+            return false;
+        }
+
+        public static bool SetServiceConfig(
+            string serviceName,
+            ServiceTypes? type = null,
+            ServiceStart? startMode = null,
+            ServiceError? error = null,
+            string binaryPathName = null,
+            string loadOrderGroup = null,
+            IntPtr tagId = default(IntPtr),
+            string dependencies = null,
+            string startName = null,
+            string password = null,
+            string displayName = null,
+            string server = null)
+        {
+            IntPtr manager = IntPtr.Zero;
+            IntPtr service = IntPtr.Zero;
+
+            try
+            {
+                manager = OpenSCManager(server, null, ScmAccess.ScManagerAllAccess);
+
+                if (manager != IntPtr.Zero)
+                {
+                    service = OpenService(manager, serviceName, ServiceAccess.ServiceChangeConfig);
+
+                    if (service != IntPtr.Zero)
+                    {
+                        return ChangeServiceConfig(
+                            service,
+                            type.HasValue ? (uint) type.Value : ServiceNoChange,
+                            startMode.HasValue ? (uint) startMode.Value : ServiceNoChange,
+                            error.HasValue ? (uint) error.Value : ServiceNoChange,
+                            binaryPathName,
+                            loadOrderGroup,
+                            tagId,
+                            dependencies,
+                            startName,
+                            password,
+                            displayName);
                     }
                 }
             }
